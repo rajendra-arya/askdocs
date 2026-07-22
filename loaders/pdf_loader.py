@@ -1,6 +1,7 @@
-import pymupdf4llm
+# import pymupdf4llm
 
-book_text = pymupdf4llm.to_text("./data/The Accidental CTO Book.pdf")
+# book_text = pymupdf4llm.to_text("../data/The Accidental CTO Book.pdf")
+# print(len(book_text))
 
 def make_chunks(data, chunk_size, chunk_overlap, min_chunk_size):
     """
@@ -21,14 +22,15 @@ def make_chunks(data, chunk_size, chunk_overlap, min_chunk_size):
     for i in range(chunk_size ,len(data)+chunk_size, step):
         chunk = data[i-chunk_size:i]
         if(min_chunk_size <= len(chunk) <= chunk_size):
-            chunks.append(chunk) 
+            chunks.append(chunk)
+    print("Total Chunks created: ", len(chunks))
     return chunks
     
-book_chunk = make_chunks(book_text, chunk_size=100, chunk_overlap=80, min_chunk_size=80)
+# book_chunk = make_chunks(book_text, chunk_size=100, chunk_overlap=80, min_chunk_size=80)
 
-three_chunks = book_chunk[0:3]
-for i in three_chunks:
-    print(i)
-    print("*"*50)
+# three_chunks = book_chunk[0:3]
+# for i in three_chunks:
+#     print(i)
+#     print("*"*50)
 
-print("no of characters---------------:", len(book_chunk[0]))
+# print("no of characters---------------:", len(book_chunk[0]))
