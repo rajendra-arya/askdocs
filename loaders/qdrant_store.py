@@ -39,21 +39,15 @@ if not client.collection_exists("askdocs"):
     print(info)
 
 
-# retrieve
-while query := input("Enter query: "):
+# get chunks
+def retrieve_chunks(query):
     query_embedding = create_embeddings(query)
     # search
     search_result = client.query_points(
         collection_name="askdocs", query=query_embedding, with_payload=True, limit=2
     ).points
-
     if search_result:
-        # display top 2 result
-        for rank, point in enumerate(search_result, start=1):
-            print(f"""
-        Rank: {rank}
-        Score:{point.score:.3f}
-        Text: \n{point.payload["text"]}
-        """)
+        data = [{"score":point.score,"text":point.payload["text"]} for point in search_result]
+        return data
     else:
-        print("No relevant documents found.")
+        return []

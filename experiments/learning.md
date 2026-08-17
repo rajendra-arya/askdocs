@@ -122,3 +122,179 @@
     - Instead of comparing a query against every vector, ANN uses specialized indexes to search only promising regions of the vector space, trading a tiny amount of accuracy for a significant improvement in speed and scalability."
     - `Query -> Jump directly to vectors that are probably close -> Compare only a small subset -> Return Top 3`
     
+> "I first implemented brute-force semantic retrieval using sentence embeddings and cosine similarity. Then I replaced the retrieval step with Qdrant, which performs efficient nearest-neighbor search over stored embeddings. The retrieved chunks are passed as context to Gemini for answer generation."
+
+
+
+# Vector DB(qdrant):
+
+## Why does Qdrant accept lower recall?
+
+Because the tradeoff is worth it.
+
+Brute Force
+✔ 100% recall
+❌ Slow
+
+ANN (Qdrant)
+✔ 98–99% recall
+✔ Much faster
+
+So in vector search, high recall means the ANN results are very close to what an exact brute-force search would have returned.
+Out of all the relevant items, how many did we successfully retrieve?"
+
+
+## Qdrant
+  python -m experiments.qdrant_small_example
+
+1. `docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant` #use docker run if brand new
+    - custom naming to container:
+        `docker run --name qdrant-local -p 6333:6333 -p 6334:6334 qdrant/qdrant`
+    - existing
+        `docker start containerId`
+2. # store embedddings in vdb
+## intialize connection with client
+client = QdrantClient(url="http://localhost:6333")
+
+
+3. ## create collection
+client.create_collection(
+    collection_name="askdocs",
+    vectors_config=VectorParams(size=384, distance=Distance.COSINE),
+)
+
+4. ## upsert doc chunk embeddings to qdrant collection
+info = client.upsert(
+    collection_name="askdocs",
+    points=[
+        PointStruct(id=rank, vector=vector, payload={"text": text})
+        for rank, (vector, text) in enumerate(zip(embeddings, text_chunks), start=1)
+    ],
+)
+print(info)
+
+5, retrieve
+print(client.collection_exists("askdocs")) #True
+----
+
+
+
+
+
+
+ point = [(i, doc, vector) for i ,(doc, vector) in enumerate(zip(documents, sentence_embedings))]
+ print(point)
+
+# output
+operation_id=1 status=<UpdateStatus.COMPLETED: 'completed'>
+
+#similarty
+loading weights: 100%|███████████████████████████████████████████████████████████████████████████████████████████| 103/103 [00:00<00:00, 1927.10it/s]
+Enter query:    what is kubernetes
+[ScoredPoint(id=2, version=1, score=0.7215535, payload={'text': 'Kubernetes manages and scales containerized applications.'}, vector=None, shard_key=None, order_value=None), ScoredPoint(id=1, version=1, score=0.27369234, payload={'text': 'Docker packages applications into portable containers.'}, vector=None, shard_key=None, order_value=None), ScoredPoint(id=3, version=1, score=0.13615046, payload={'text': 'Qdrant is a vector database for semantic search using embeddings.'}, vector=None, shard_key=None, order_value=None)]
+
+
+
+
+Enter query:    tell me about python
+
+    Rank: 1
+    Score:0.787
+    Text: Python is a popular programming language used for AI and web development.
+
+    Rank: 2
+    Score:0.192
+    Text: Machine learning models learn patterns from data.
+
+    Rank: 3
+    Score:0.156
+    Text: Docker packages applications into portable containers.
+
+
+
+
+# vector DB cannot answer "I don't know." It always returns the nearest vectors.
+
+This is why production RAG systems often do:
+Search -> Score threshold -> Low score -> "I couldn't find relevant information."
+
+----
+That's the Pythonic way.
+if search_result:
+→ list has items.
+if not search_result:
+→ list is empty.
+No need to compare with []. This works for lists, strings, dictionaries, sets, etc., and is the preferred style in Python.
+
+-----
+output:
+```bash
+    Enter query: docker
+
+            Rank: 1
+            Score:0.658
+            Text: 
+    lved the problems of inconsistency and inefficiency. But as always, solving one problem creates a new, more interesting one. 
+
+    Docker is a fantastic tool for building, shipping, and running a single container. But our production environment was now a complex system of hundreds of containers running across a fleet of servers. This introduced a whole new set of questions: 
+
+    ● If a server dies, how do we move its 50 containers to a healthy server?
+
+    ● If a single container crashes, who is responsibl
+            
+
+            Rank: 2
+            Score:0.612
+            Text: 
+    lagued our developers and the inefficiency that was 
+
+    draining our bank account. It was time to move from theory to practice. It was time to write our first Dockerfle and pack our first application into a standardized container. 
+
+    Technical Deep Dive: Writing Our First Dockerfile 
+
+    We decided to containerize our most critical application first: the Python/Django monolith. A Dockerfle is just a plain text file named Dockerfle that lives alongside your code. It's a recipe for building your image. 
+```     
+
+
+
+## learing about llm integration , RAG
+- its takes time during embedding and then output generation
+
+- ``` #output
+    Loading weights: 100%|██████████████████████████████████████████████████████████████████████████| 103/103 [00:00<00:00, 2175.63it/s]
+    Enter query: what is kubernetes
+    Based on the provided text, Kubernetes is the conductor for your container orchestra. It replaces manual, error-prone tasks with automated, declarative management, working from a YAML file that describes your desired final state to make it a reality. It also provides powerful, built-in self-healing to automatically replace failed Pods or Nodes.
+    Enter query: do u think kuberntes can be baby of docker
+    I don't know based on the provided context.
+    <!-- ----- -->
+    Your end-to-end flow is now working:
+
+    Query → Qdrant → Top-K context → Gemini → grounded response
+
+    And your tests show an important behavior:
+
+    Docker → good answer.
+    the product name? -> Website name → correctly refuses when context lacks it.
+    Product name → answers when context contains it.
+    ```
+
+## RAG
+
+- RAG combines retrieval with grounded LLM generation.
+- Retrieved Top-K chunks are passed to the LLM as context.
+- The prompt instructs the model to answer only from the provided context.
+- If the context doesn't contain the answer, the model should respond with an explicit "I don't know."
+- Gemini's Interactions API returns a structured `Interaction` object
+    - `output_text` provides the generated response.
+- `python-dotenv` loads `.env` variables into `os.environ` for securely accessing API keys.
+- AskDocs separates responsibilities:
+    - `main.py` → orchestration, `qdrant_store.py` → retrieval, `llm.py` → generation.
+    - So if you replace Qdrant with another vector DB, main.py and llm.py don't need to change.
+
+### Experiments & Observations
+
+- Query `"docker"` → Docker-related chunks were retrieved → Gemini generated a grounded answer.
+- Query `"who is the author?"` → relevant information wasn't retrieved → Gemini correctly refused to answer.
+- Query `"docker and edge computing"` → Top-K retrieval returned only Edge Computing chunks → Docker couldn't be answered.
+- Rephrasing the same question changed the retrieved chunks, showing that **retrieval quality directly affects RAG answer quality**.
+- always gets some response means Top-K retrieval ≠ relevance guarantee.
