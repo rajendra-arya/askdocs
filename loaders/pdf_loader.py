@@ -59,7 +59,7 @@ def make_chunks(doc, chunk_size, chunk_overlap, min_chunk_size):
                     end = i
 
                     # Check whether the carried-over temp belongs inside the current complete chunk.
-                    if start < temp_len < end:  # issue here <= boundary cases
+                    if start < temp_len < end:
                         # This chunk contains text from both the previous page and the current page, so store both page numbers.
                         chunks.append(
                             {
@@ -86,6 +86,23 @@ def make_chunks(doc, chunk_size, chunk_overlap, min_chunk_size):
                 )
                 print(f'last iteration chunk "{chunk}".')
 
+    return chunks
+
+
+def add_document_metadata(chunks, doc_id):
+    """
+    Add the document ID to each chunk for document-level identification.
+
+    Args:
+        chunks (list[dict]): Chunks extracted from a document.
+        doc_id (str): Unique identifier for the source document.
+
+    Returns:
+        list[dict]: Chunks with the document ID added to their metadata.
+    """
+
+    for chunk in chunks:
+        chunk["doc_id"] = doc_id
     return chunks
 
 

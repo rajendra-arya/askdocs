@@ -6,7 +6,8 @@ def main():
     while query := input("Enter query: "):
         chunks = retrieve_chunks(query)
         response = generate_response(chunks=chunks, query=query)
-        print(response)         
+        print(response)
+
 
 if __name__ == "__main__":
     main()

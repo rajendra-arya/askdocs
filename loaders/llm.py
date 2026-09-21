@@ -18,17 +18,18 @@ def generate_response(chunks, query):
             "score": chunk["score"],
             "text": chunk["text"],
             "page_no": chunk["page_no"],
+            "doc_id": chunk["doc_id"],
         }
         for id, chunk in enumerate(chunks, start=1)
     ]
 
     formatted_context = "\n-----\n".join(
-        f"Source: {i['source_id']}\nText: {i['text']}" for i in context
+        f"Source: {i['source_id']}\nText: {i['text']}\nDocument_id:{i['doc_id']}"
+        for i in context
     )
-    # print(formatted_context)
 
     interaction = client.interactions.create(
-        model="gemini-3.6-flash",
+        model="gemini-3.5-flash-lite",
         system_instruction=f"""
         You are an expert assistant. Answer the user's query using only the provided sources.
         When making a claim, cite the relevant source using exactly this format: [Source N].
@@ -43,24 +44,34 @@ def generate_response(chunks, query):
     response = interaction.output_text
 
     def replace_citation(match):
-        # Extract all source numbers from: [Source 1] -> ["1"] , [Source 1, Source 2] -> ["1", "2"]
+        # extract all source numbers from: [Source 1] -> ["1"] , [Source 1, Source 2] -> ["1", "2"]
         source_ids = re.findall(r"\d+", match.group(1))
 
-        pages = []
+        citations = []
 
         for source_id in source_ids:
             for chunk in context:
                 if chunk["source_id"] == int(source_id):
-                    pages.extend(chunk["page_no"])
+                    citations.append(
+                        {"doc_id": chunk["doc_id"], "pages": chunk["page_no"]}
+                    )
                     break
 
-        return (
-            f"[Page {pages[0]}]"
-            if len(pages) == 1
-            else f"[Pages {', '.join(map(str, pages))}]"
-        )
+        formatted_citations = []
+
+        # format each citation with document ID and page numbers
+        for i in citations:
+            doc_id = i["doc_id"]
+            pages = i["pages"]
+            formatted_citations.append(
+                f"[{doc_id}, Page {i['pages'][0]}]"
+                if len(pages) == 1
+                else f"[{doc_id}, Pages: {', '.join(map(str, pages))}]"
+            )
+
+        # combine multiple citations into one string
+        return " ".join(formatted_citations)
 
     # Replace both single and combined citations
     response = re.sub(r"\[Source (.+?)\]", replace_citation, response)
-
     return response
