@@ -24,7 +24,7 @@ def generate_response(chunks, query):
     ]
 
     formatted_context = "\n-----\n".join(
-        f"Source: {i['source_id']}\nText: {i['text']}\nDocument_id:{i['doc_id']}"
+        f"Source: {i['source_id']}\nText: {i['text']}\nDocument_id: {i['doc_id']}"
         for i in context
     )
 
@@ -32,8 +32,18 @@ def generate_response(chunks, query):
         model="gemini-3.5-flash-lite",
         system_instruction=f"""
         You are an expert assistant. Answer the user's query using only the provided sources.
+
         When making a claim, cite the relevant source using exactly this format: [Source N].
+        Never use [1], [2], [3] or any other citation format.
         Do not generate or infer page numbers.
+
+        Example:
+        Source 1 contains information about Docker.
+        Source 2 contains information about Kubernetes.
+
+        Docker is used to create and run containers [Source 1].
+        Kubernetes manages and orchestrates containers [Source 2].
+
         If the provided sources do not contain enough information to answer the query, politely say you don't know.
 
         {formatted_context}
